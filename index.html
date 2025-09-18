@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ask Martha Nussbaum: What Should I Read?</title>
+
+
+<!-- Reveal.js core CSS & theme (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/reveal.js@5/dist/reveal.css">
+<link rel="stylesheet" href="https://unpkg.com/reveal.js@5/dist/theme/white.css" id="theme">
+<!-- Code highlight theme -->
+<link rel="stylesheet" href="https://unpkg.com/reveal.js@5/plugin/highlight/monokai.css">
+
+
+<style>
+.reveal h1, .reveal h2, .reveal h3 { letter-spacing: .3px; }
+.reveal .slides { font-size: 30px; }
+.reveal small.muted { color:#666; font-size:.7em; }
+.badge { display:inline-block; padding:.2em .5em; border-radius:.5em; border:1px solid #ddd; font-size:.6em; vertical-align: middle; }
+code { font-size: .8em; }
+pre code { max-height: 420px; overflow-x: auto; overflow-y: auto; display: block; }
+pre { max-height: 420px; overflow: auto; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:.85em; line-height:1.45; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+
+<!-- SLIDE 1 -->
+<section>
+<h2>Ask Martha Nussbaum: <em>What Should I Read?</em></h2>
+<p>A compact DH prototype in <strong>R</strong> &amp; <strong>Shiny</strong></p>
+<ul>
+<li>How do Nussbaum's <strong>citation practices</strong> shape authority?</li>
+<li>Embeddings search over <strong>clean, annotated bibliographies</strong></li>
+<li>Bibliography entries are typed (<em>book, article, chapter, etc.</em>)</li>
+</ul>
+<p><span class="badge">R</span> <span class="badge">Shiny</span> <span class="badge">GloVe</span> <span class="badge">cosine similarity</span></p>
+</section>
+
+
+<!-- SLIDE 2 -->
+<section>
+<h2>Data &amp; Annotations (from CSV → tidy)</h2>
+<p>We start from a <strong>clean, tagged</strong> bibliography CSV.</p>
+<pre><code class="language-r">library(readr); library(dplyr)
+# e.g., file exported from preprocessing stage
+bib <- read_csv("nus_bibliography_tagged_full_ThoD.csv") %>%
+transmute(
+id = row_number(),
+title = coalesce(title, "(missing title)"),
+author,
+year = as.integer(year),
+type = factor(type, levels = c("book","article","chapter","other")),
+source = coalesce(source, "")
+)
+# Quick peek by type
+count(bib, type, sort = TRUE)</code></pre>
+<small class="muted">Types are curated: <em>book / article / chapter / other</em>. Ready for downstream embeddings.</small>
+</section>
+
+
+<!-- SLIDE 3 -->
+<section>
+<h2>Embeddings Workflow (precomputed, no server cost)</h2>
+<ul>
+<li>Train <strong>GloVe</strong> locally once; save artifacts to <code>RData</code></li>
+<li>At runtime Shiny <strong>loads</strong>: <code>word_vectors</code>, <code>title_embeddings</code>, <code>bib</code></li>
