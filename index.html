@@ -1,49 +1,45 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Ask Martha Nussbaum: What Should I Read?</title>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ask Martha Nussbaum: What Should I Read?</title>
+<style>
+  :root { --fg:#111; --muted:#666; --bg:#fff; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:18px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .deck{height:100%;display:grid;place-items:center}
+  .slide{display:none;max-width:1100px;padding:48px}
+  .slide.active{display:block;animation:fade .2s ease}
+  h1,h2,h3{margin:.2em 0}
+  ul{margin:.6em 0 0 1.2em}
+  code,pre{font-family:ui-monospace,Menlo,Consolas,monospace}
+  pre{max-height:420px;overflow:auto;background:#111;color:#eee;border-radius:12px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+  small.muted{color:var(--muted)}
+  .badges span{display:inline-block;border:1px solid #ddd;border-radius:.6em;padding:.2em .6em;margin-right:.3em;font-size:.8em}
+  .nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);color:#666;font-size:14px}
+  .num{position:fixed;top:10px;right:14px;color:#888;font-size:14px}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="deck">
 
-    <!-- Reveal.js CSS (CDN) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css" id="theme">
+  <section class="slide active">
+    <h2>Ask Martha Nussbaum: <em>What Should I Read?</em></h2>
+    <p>A compact Digital Humanities prototype in <strong>R</strong> &amp; <strong>Shiny</strong></p>
+    <ul>
+      <li>How do Nussbaum’s <strong>citation practices</strong> shape authority?</li>
+      <li>Embeddings search over <strong>clean, annotated bibliographies</strong></li>
+      <li>Entries typed: <em>book / article / chapter / other</em></li>
+    </ul>
+    <p class="badges"><span>R</span><span>Shiny</span><span>GloVe</span><span>cosine similarity</span></p>
+  </section>
 
-    <style>
-      .reveal .slides { font-size: 28px; }
-      .badge { display:inline-block; padding:.2em .5em; border-radius:.5em; border:1px solid #ddd; font-size:.6em; vertical-align: middle; }
-      small.muted { color:#666; font-size:.7em; }
-      pre { max-height: 420px; overflow:auto; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.15); background:#111; color:#eee; padding:12px; }
-      pre code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.8em; line-height:1.45; }
-    </style>
-  </head>
-  <body>
-    <div class="reveal">
-      <div class="slides">
-
-        <!-- SLIDE 1 -->
-        <section>
-          <h2>Ask Martha Nussbaum: <em>What Should I Read?NEW</em></h2>
-          <p>A compact Digital Humanities prototype in <strong>R</strong> &amp; <strong>Shiny</strong></p>
-          <ul>
-            <li>How do Nussbaum's <strong>citation practices</strong> shape authority?</li>
-            <li>Embeddings search over <strong>clean, annotated bibliographies</strong></li>
-            <li>Entries typed: <em>book / article / chapter / other</em></li>
-          </ul>
-          <p><span class="badge">R</span> <span class="badge">Shiny</span> <span class="badge">GloVe</span> <span class="badge">cosine similarity</span></p>
-          <hr style="margin:24px 0; border:none; border-top:1px solid #ccc;">
-  <p style="font-size:0.8em; color:#555;">
-    <strong>Sofia Porfiryeva, University of Ottawa</strong><br>
-    <a href="mailto:sofia.porfiryeva@example.com">sporfiry@uottawa.ca</a>
-  </p>
-        </section>
-
-        <!-- SLIDE 2 -->
-        <section>
-          <h2>Data &amp; Annotations (from CSV → tidy)</h2>
-          <p>We start from a <strong>clean, tagged</strong> bibliography CSV.</p>
+  <section class="slide">
+    <h2>Data &amp; Annotations (from CSV → tidy)</h2>
+    <p>We start from a <strong>clean, tagged</strong> bibliography CSV.</p>
 <pre><code>library(readr); library(dplyr)
-bib <- read_csv("nus_bibliography_tagged_full_ThoD.csv") %>%
+bib &lt;- read_csv("nus_bibliography_tagged_full_ThoD.csv") %&gt;%
   transmute(
     id    = row_number(),
     title = coalesce(title, "(missing title)"),
@@ -53,69 +49,77 @@ bib <- read_csv("nus_bibliography_tagged_full_ThoD.csv") %>%
     source = coalesce(source, "")
   )
 count(bib, type, sort = TRUE)</code></pre>
-          <small class="muted">Types curated: <em>book / article / chapter / other</em>. Ready for embeddings.</small>
-        </section>
+    <small class="muted">Types curated: <em>book / article / chapter / other</em>. Ready for embeddings.</small>
+  </section>
 
-        <!-- SLIDE 3 -->
-        <section>
-          <h2>Embeddings Workflow</h2>
-          <ul>
-            <li>Train <strong>GloVe</strong> locally once; save artifacts to <strong>RData</strong></li>
-            <li>Shiny loads: <code>word_vectors</code>, <code>title_embeddings</code>, <code>bib</code></li>
-            <li>Query → tokenize → keep <strong>in-vocab</strong> → <strong>mean vector</strong> → cosine top-k</li>
-          </ul>
+  <section class="slide">
+    <h2>Embeddings Workflow (precomputed, no server cost)</h2>
+    <ul>
+      <li>Train <strong>GloVe</strong> locally once; save artifacts to <strong>RData</strong></li>
+      <li>Shiny loads: <code>word_vectors</code>, <code>title_embeddings</code>, <code>bib</code></li>
+      <li>Query → tokenize → keep <strong>in-vocab</strong> → <strong>mean vector</strong> → cosine top-k</li>
+    </ul>
 <pre><code># Artifacts expected in nussbaum_glove.RData
 # word_vectors: matrix [V x D]
-# title_embeddings: matrix [N x D]
+# title_embeddings: matrix [N x D] aligned with rows of `bib`
 load("nussbaum_glove.RData")</code></pre>
-          <small class="muted">OOV queries (e.g., <em>computer</em>) return no hits.</small>
-        </section>
+    <small class="muted">OOV queries (e.g., <em>computer</em>) return no hits by design.</small>
+  </section>
 
-        <!-- SLIDE 4 -->
-        <section>
-          <h2>Shiny server — cosine similarity</h2>
-<pre><code>server <- function(input, output, session) {
-  results <- eventReactive(input$go, {
+  <section class="slide">
+    <h2>Shiny server — tokenization, mean(word_vectors), cosine</h2>
+<pre><code>server &lt;- function(input, output, session) {
+  results &lt;- eventReactive(input$go, {
     req(input$query)
-    output$status <- renderText("🔎 Searching, please wait...")
-    query_tokens <- word_tokenizer(tolower(input$query))[[1]]
-    valid_tokens <- query_tokens[query_tokens %in% rownames(word_vectors)]
-    if (length(valid_tokens) == 0) {
-      output$status <- renderText("Sorry! We have to think a bit more on this topic.")
-      return(NULL)
-    }
-    query_vector <- colMeans(word_vectors[valid_tokens, , drop = FALSE])
-    sims <- apply(title_embeddings, 1, cosine_similarity, y = query_vector)
-    top_indices <- order(sims, decreasing = TRUE)[1:input$n]
-    results <- bib[top_indices, ]; results$similarity <- round(sims[top_indices], 3)
-    output$status <- renderText("✅ Found some readings!"); results
+    output$status &lt;- renderText("🔎 Searching, please wait...")
+    query_tokens &lt;- word_tokenizer(tolower(input$query))[[1]]
+    valid_tokens &lt;- query_tokens[query_tokens %in% rownames(word_vectors)]
+    if (length(valid_tokens) == 0) { output$status &lt;- renderText("Sorry! We have to think a bit more on this topic."); return(NULL) }
+    query_vector &lt;- colMeans(word_vectors[valid_tokens, , drop = FALSE])
+    sims &lt;- apply(title_embeddings, 1, cosine_similarity, y = query_vector)
+    top_indices &lt;- order(sims, decreasing = TRUE)[1:input$n]
+    results &lt;- bib[top_indices, ]; results$similarity &lt;- round(sims[top_indices], 3)
+    output$status &lt;- renderText("✅ Found some readings!"); results
   })
 }</code></pre>
-          <small class="muted">UI: <code>query</code>, <code>n</code>, button <code>go</code>, <code>status</code> textOutput.</small>
-        </section>
+    <small class="muted">UI: inputs <code>query</code>, <code>n</code>, button <code>go</code>, and a <code>status</code> textOutput.</small>
+  </section>
 
-        <!-- SLIDE 5 -->
-        <section>
-          <h2>Why it matters → Next steps</h2>
-          <ul>
-            <li>Makes the <strong>canon structure</strong> visible in a woman philosopher's oeuvre</li>
-            <li>Insights: author-gender skew, dominance of ancient male sources</li>
-            <li>Next: more books; stronger <strong>gender annotation</strong>; simple dashboards</li>
-          </ul>
-          <small class="muted">Takeaway: fast, reproducible evidence for how gender &amp; canon co-produce authority.</small>
-        </section>
+  <section class="slide">
+    <h2>Why it matters → Next steps</h2>
+    <ul>
+      <li>Make the <strong>canon structure</strong> visible in a woman philosopher’s oeuvre</li>
+      <li>Signals: author-gender skew, dominance of ancient male sources</li>
+      <li>Next: more books; stronger <strong>gender annotation</strong>; simple dashboards</li>
+    </ul>
+    <small class="muted">Takeaway: fast, reproducible, discussable evidence for how gender &amp; canon co-produce authority.</small>
+  </section>
 
-      </div>
-    </div>
-
-    <!-- Reveal.js JS (CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
-    <script>
-      Reveal.initialize({
-        hash: true,
-        slideNumber: true,
-        transition: 'fade'
-      });
-    </script>
-  </body>
+</div>
+<div class="nav">← / → or PgUp / PgDn • <span id="url"></span></div>
+<div class="num" id="num"></div>
+<script>
+(function(){
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  const goTo = (n)=>{
+    i=(n+slides.length)%slides.length;
+    slides.forEach((s,idx)=>s.classList.toggle('active', idx===i));
+    location.hash = '#' + (i+1);
+    document.getElementById('num').textContent = (i+1) + ' / ' + slides.length;
+    document.getElementById('url').textContent = location.href;
+  };
+  window.addEventListener('keydown', e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)) goTo(i+1);
+    if(['ArrowLeft','PageUp'].includes(e.key)) goTo(i-1);
+  });
+  window.addEventListener('hashchange', ()=>{
+    const n = parseInt(location.hash.replace('#',''),10);
+    if(!isNaN(n)) goTo(n-1);
+  });
+  const n0 = parseInt(location.hash.replace('#',''),10);
+  goTo(isNaN(n0)?0:n0-1);
+})();
+</script>
+</body>
 </html>
