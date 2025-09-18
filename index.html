@@ -1,14 +1,11 @@
-<!-- DEPLOY CHECK -->
-<h1 style="position:fixed;top:8px;left:12px;margin:0;z-index:9999">DEPLOY OK</h1>
-
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ask Martha Nussbaum: What Should I Read?</title>
 
-    <!-- Reveal.js CSS (CDN) -->
+    <!-- Reveal.js CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css" id="theme">
 
@@ -17,8 +14,8 @@
       .reveal h1, .reveal h2, .reveal h3 { letter-spacing: .3px; }
       .badge { display:inline-block; padding:.2em .5em; border-radius:.5em; border:1px solid #ddd; font-size:.6em; vertical-align: middle; }
       small.muted { color:#666; font-size:.7em; }
-      pre { max-height: 420px; overflow:auto; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.15); }
-      pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:.85em; line-height:1.45; }
+      pre { max-height: 420px; overflow:auto; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.15); background:#111; color:#eee; padding:12px; }
+      pre code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.85em; line-height:1.45; }
     </style>
   </head>
   <body>
@@ -30,9 +27,9 @@
           <h2>Ask Martha Nussbaum: <em>What Should I Read?</em></h2>
           <p>A compact Digital Humanities prototype in <strong>R</strong> &amp; <strong>Shiny</strong></p>
           <ul>
-            <li>Question: how do Nussbaum's <strong>citation practices</strong> shape authority?</li>
-            <li>Method: embeddings search over <strong>clean, annotated bibliographies</strong></li>
-            <li>Note: entries are typed (<em>book</em> / <em>article</em> / <em>chapter</em> / <em>other</em>)</li>
+            <li>How do Nussbaum's <strong>citation practices</strong> shape authority?</li>
+            <li>Embeddings search over <strong>clean, annotated bibliographies</strong></li>
+            <li>Entries typed: <em>book / article / chapter / other</em></li>
           </ul>
           <p><span class="badge">R</span> <span class="badge">Shiny</span> <span class="badge">GloVe</span> <span class="badge">cosine similarity</span></p>
         </section>
@@ -41,9 +38,8 @@
         <section>
           <h2>Data &amp; Annotations (from CSV → tidy)</h2>
           <p>We start from a <strong>clean, tagged</strong> bibliography CSV.</p>
-          <pre><code>library(readr); library(dplyr)
-# e.g., file exported from preprocessing stage
-bib &lt;- read_csv("nus_bibliography_tagged_full_ThoD.csv") %&gt;%
+<pre><code>library(readr); library(dplyr)
+bib <- read_csv("nus_bibliography_tagged_full_ThoD.csv") %>%
   transmute(
     id    = row_number(),
     title = coalesce(title, "(missing title)"),
@@ -52,61 +48,46 @@ bib &lt;- read_csv("nus_bibliography_tagged_full_ThoD.csv") %&gt;%
     type  = factor(type, levels = c("book","article","chapter","other")),
     source = coalesce(source, "")
   )
-# Quick peek by type
 count(bib, type, sort = TRUE)</code></pre>
-          <small class="muted">Types are curated: <em>book / article / chapter / other</em>. Ready for downstream embeddings.</small>
+          <small class="muted">Types curated: <em>book / article / chapter / other</em>. Ready for embeddings.</small>
         </section>
 
         <!-- SLIDE 3 -->
         <section>
-          <h2>Embeddings Workflow (precomputed, no server cost)</h2>
+          <h2>Embeddings Workflow</h2>
           <ul>
             <li>Train <strong>GloVe</strong> locally once; save artifacts to <strong>RData</strong></li>
-            <li>At runtime Shiny loads: <code>word_vectors</code>, <code>title_embeddings</code>, <code>bib</code></li>
-            <li>Query → tokenize → keep <strong>in-vocab</strong> tokens → <strong>mean vector</strong> → cosine top-k</li>
+            <li>Shiny loads: <code>word_vectors</code>, <code>title_embeddings</code>, <code>bib</code></li>
+            <li>Query → tokenize → keep <strong>in-vocab</strong> → <strong>mean vector</strong> → cosine top-k</li>
           </ul>
-          <pre><code># Artifacts expected in nussbaum_glove.RData
+<pre><code># Artifacts expected in nussbaum_glove.RData
 # word_vectors: matrix [V x D]
-# title_embeddings: matrix [N x D] aligned with rows of `bib`
+# title_embeddings: matrix [N x D]
 load("nussbaum_glove.RData")</code></pre>
-          <small class="muted">Out-of-vocabulary queries (e.g., <em>computer</em>) return no hits by design.</small>
+          <small class="muted">OOV queries (e.g., <em>computer</em>) return no hits.</small>
         </section>
 
         <!-- SLIDE 4 -->
         <section>
-          <h2>Shiny server — tokenization, mean(word_vectors), cosine</h2>
-          <pre><code># server: input tokenization, averaging word_vectors, cosine similarity
-server &lt;- function(input, output, session) {
-  results &lt;- eventReactive(input$go, {
+          <h2>Shiny server — cosine similarity</h2>
+<pre><code>server <- function(input, output, session) {
+  results <- eventReactive(input$go, {
     req(input$query)
-    output$status &lt;- renderText("🔎 Searching, please wait...")
-
-    # lowercase & tokenize
-    query_tokens &lt;- word_tokenizer(tolower(input$query))[[1]]
-
-    # keep only tokens that have vectors
-    valid_tokens &lt;- query_tokens[query_tokens %in% rownames(word_vectors)]
+    output$status <- renderText("🔎 Searching, please wait...")
+    query_tokens <- word_tokenizer(tolower(input$query))[[1]]
+    valid_tokens <- query_tokens[query_tokens %in% rownames(word_vectors)]
     if (length(valid_tokens) == 0) {
-      output$status &lt;- renderText("Sorry! We have to think a bit more on this topic.")
+      output$status <- renderText("Sorry! We have to think a bit more on this topic.")
       return(NULL)
     }
-
-    # mean embedding of the query
-    query_vector &lt;- colMeans(word_vectors[valid_tokens, , drop = FALSE])
-
-    # cosine to title embeddings
-    sims &lt;- apply(title_embeddings, 1, cosine_similarity, y = query_vector)
-
-    # top-n
-    top_indices &lt;- order(sims, decreasing = TRUE)[1:input$n]
-    results &lt;- bib[top_indices, ]
-    results$similarity &lt;- round(sims[top_indices], 3)
-
-    output$status &lt;- renderText("✅ Found some readings!")
-    return(results)
+    query_vector <- colMeans(word_vectors[valid_tokens, , drop = FALSE])
+    sims <- apply(title_embeddings, 1, cosine_similarity, y = query_vector)
+    top_indices <- order(sims, decreasing = TRUE)[1:input$n]
+    results <- bib[top_indices, ]; results$similarity <- round(sims[top_indices], 3)
+    output$status <- renderText("✅ Found some readings!"); results
   })
 }</code></pre>
-          <small class="muted">UI expects inputs: <code>query</code> (text), <code>n</code> (top-k), a <code>go</code> button, and a <code>status</code> textOutput.</small>
+          <small class="muted">UI: <code>query</code> (text), <code>n</code> (top-k), <code>go</code> button, <code>status</code> textOutput.</small>
         </section>
 
         <!-- SLIDE 5 -->
@@ -114,24 +95,13 @@ server &lt;- function(input, output, session) {
           <h2>Why it matters → Next steps</h2>
           <ul>
             <li>Makes the <strong>canon structure</strong> visible in a woman philosopher's oeuvre</li>
-            <li>Immediate insights: author-gender skew, dominance of ancient male sources</li>
-            <li>Next: ingest more books; strengthen <strong>gender annotation</strong> (acknowledging limits);
-                add simple dashboards (network, timelines)</li>
+            <li>Insights: author-gender skew, dominance of ancient male sources</li>
+            <li>Next: more books; stronger <strong>gender annotation</strong>; simple dashboards</li>
           </ul>
-          <small class="muted">Takeaway: fast, reproducible, and discussable evidence for how gender and canon co-produce authority.</small>
+          <small class="muted">Takeaway: fast, reproducible evidence for how gender &amp; canon co-produce authority.</small>
         </section>
 
       </div>
     </div>
 
-    <!-- Reveal.js JS (CDN). No markdown/highlight plugins → ultra-stable -->
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
-    <script>
-      Reveal.initialize({
-        hash: true,
-        slideNumber: true,
-        transition: 'fade'
-      });
-    </script>
-  </body>
-</html>
+    <!-- Reveal.js JS -->
